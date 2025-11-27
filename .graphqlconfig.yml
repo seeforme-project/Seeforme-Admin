@@ -1,0 +1,19 @@
+projects:
+  seeforyouaws:
+    schemaPath: amplify/backend/api/seeforyouaws/build/schema.graphql
+    includes:
+      - graphql/**/*.ts
+    excludes:
+      - ./amplify/**
+      - graphql/API.ts
+    extensions:
+      amplify:
+        codeGenTarget: typescript
+        generatedFileName: graphql/API.ts
+        docsFilePath: graphql
+        region: ap-south-1
+        apiId: null
+        maxDepth: 2
+extensions:
+  amplify:
+    version: 3
