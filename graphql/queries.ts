@@ -47,6 +47,81 @@ export const listReports = /* GraphQL */ `query ListReports(
   APITypes.ListReportsQueryVariables,
   APITypes.ListReportsQuery
 >;
+export const getNotification = /* GraphQL */ `query GetNotification($id: ID!) {
+  getNotification(id: $id) {
+    id
+    userId
+    title
+    message
+    type
+    isRead
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.GetNotificationQueryVariables,
+  APITypes.GetNotificationQuery
+>;
+export const listNotifications = /* GraphQL */ `query ListNotifications(
+  $filter: ModelNotificationFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  listNotifications(filter: $filter, limit: $limit, nextToken: $nextToken) {
+    items {
+      id
+      userId
+      title
+      message
+      type
+      isRead
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.ListNotificationsQueryVariables,
+  APITypes.ListNotificationsQuery
+>;
+export const notificationsByUserId = /* GraphQL */ `query NotificationsByUserId(
+  $userId: ID!
+  $sortDirection: ModelSortDirection
+  $filter: ModelNotificationFilterInput
+  $limit: Int
+  $nextToken: String
+) {
+  notificationsByUserId(
+    userId: $userId
+    sortDirection: $sortDirection
+    filter: $filter
+    limit: $limit
+    nextToken: $nextToken
+  ) {
+    items {
+      id
+      userId
+      title
+      message
+      type
+      isRead
+      createdAt
+      updatedAt
+      __typename
+    }
+    nextToken
+    __typename
+  }
+}
+` as GeneratedQuery<
+  APITypes.NotificationsByUserIdQueryVariables,
+  APITypes.NotificationsByUserIdQuery
+>;
 export const getVolunteer = /* GraphQL */ `query GetVolunteer($id: ID!) {
   getVolunteer(id: $id) {
     id
@@ -61,6 +136,8 @@ export const getVolunteer = /* GraphQL */ `query GetVolunteer($id: ID!) {
       endTime
       __typename
     }
+    warningCount
+    isBanned
     createdAt
     updatedAt
     __typename
@@ -83,6 +160,8 @@ export const listVolunteers = /* GraphQL */ `query ListVolunteers(
       email
       gender
       isAvailableNow
+      warningCount
+      isBanned
       createdAt
       updatedAt
       __typename
@@ -118,6 +197,8 @@ export const volunteersByOwnerAndId = /* GraphQL */ `query VolunteersByOwnerAndI
       email
       gender
       isAvailableNow
+      warningCount
+      isBanned
       createdAt
       updatedAt
       __typename
@@ -172,6 +253,8 @@ export const getBlindUser = /* GraphQL */ `query GetBlindUser($id: ID!) {
   getBlindUser(id: $id) {
     id
     trustedVolunteerIds
+    isBanned
+    adminWarningMessage
     createdAt
     updatedAt
     __typename
@@ -198,6 +281,8 @@ export const listBlindUsers = /* GraphQL */ `query ListBlindUsers(
     items {
       id
       trustedVolunteerIds
+      isBanned
+      adminWarningMessage
       createdAt
       updatedAt
       __typename

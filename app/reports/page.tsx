@@ -3,11 +3,31 @@
 import { useEffect, useState } from "react";
 import { generateClient } from "aws-amplify/api";
 import { getCurrentUser } from "aws-amplify/auth";
-import { listReports, getCall } from "@/graphql/queries";
-import { updateReport } from "@/graphql/mutations";
-import { Report, ReportStatus, Call } from "@/graphql/API";
+import { listReports, getCall, getVolunteer } from "@/graphql/queries";
+import {
+  updateReport,
+  updateVolunteer,
+  updateBlindUser, // Added for Blind User Warnings
+  createNotification,
+} from "@/graphql/mutations";
+import {
+  Report,
+  ReportStatus,
+  Call,
+  NotificationType,
+  Volunteer,
+} from "@/graphql/API";
 import { cn } from "@/lib/utils";
-import { AlertCircle, CheckCircle, Clock, Video, User } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Video,
+  User,
+  ShieldAlert,
+  Megaphone,
+} from "lucide-react";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const client = generateClient();
 
@@ -18,6 +38,24 @@ type ReportWithCall = Report & {
 export default function ReportsPage() {
   const [reports, setReports] = useState<ReportWithCall[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // --- MODAL CONFIG ---
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    type: "warning" | "success" | "info";
+    title: string;
+    message: string;
+    action: () => Promise<void>;
+    confirmText: string;
+  }>({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+    action: async () => {},
+    confirmText: "Confirm",
+  });
 
   useEffect(() => {
     fetchReports();
@@ -30,9 +68,7 @@ export default function ReportsPage() {
         query: listReports,
         authMode: "userPool",
       });
-
       const rawReports = result.data.listReports.items as Report[];
-
       const enrichedReports = await Promise.all(
         rawReports.map(async (report) => {
           if (!report.callId) return report;
@@ -42,7 +78,6 @@ export default function ReportsPage() {
               variables: { id: report.callId },
               authMode: "userPool",
             });
-            // Check if getCall returned data (it might be null if deleted)
             return {
               ...report,
               callDetails: (callResult.data.getCall as Call) || null,
@@ -52,7 +87,6 @@ export default function ReportsPage() {
           }
         })
       );
-
       enrichedReports.sort(
         (a, b) =>
           new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
@@ -65,8 +99,21 @@ export default function ReportsPage() {
     }
   };
 
-  const handleResolve = async (id: string) => {
-    if (!confirm("Mark this report as resolved?")) return;
+  // --- ACTION 1: RESOLVE ONLY ---
+  const confirmResolve = (id: string) => {
+    setModalConfig({
+      isOpen: true,
+      type: "success",
+      title: "Mark as Resolved?",
+      message:
+        "This will close the ticket without taking action against any user.",
+      confirmText: "Resolve Ticket",
+      action: async () => await executeResolve(id),
+    });
+  };
+
+  const executeResolve = async (id: string) => {
+    setProcessingId(id);
     try {
       await client.graphql({
         query: updateReport,
@@ -80,6 +127,143 @@ export default function ReportsPage() {
       );
     } catch (error) {
       alert("Failed to update report");
+    } finally {
+      setProcessingId(null);
+      setModalConfig((prev) => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  // --- ACTION 2: HANDLE WARNINGS (Branch Logic) ---
+  const confirmAction = (report: ReportWithCall) => {
+    // CASE A: Volunteer Reported Blind User -> Warn Blind User
+    if (report.reportedBy === "VOLUNTEER") {
+      const blindId = report.callDetails?.blindUserId;
+      if (!blindId) return alert("Blind User ID not found.");
+
+      setModalConfig({
+        isOpen: true,
+        type: "warning",
+        title: "Send Audio Warning to Blind User?",
+        message:
+          "This will queue an audible warning message on the blind user's device. They must acknowledge it before making another call.",
+        confirmText: "Send Audio Warning",
+        action: async () => await executeBlindWarning(report, blindId),
+      });
+    }
+    // CASE B: Blind User Reported Volunteer -> Warn Volunteer
+    else {
+      const volId = report.callDetails?.volunteerId;
+      if (!volId) return alert("Volunteer ID not found.");
+
+      setModalConfig({
+        isOpen: true,
+        type: "warning",
+        title: "Issue Strike to Volunteer?",
+        message:
+          "This will add a strike to the volunteer's record and send them a formal notification. The ticket will be closed.",
+        confirmText: "Issue Strike",
+        action: async () => await executeVolunteerStrike(report, volId),
+      });
+    }
+  };
+
+  // Logic: Warn Blind User
+  const executeBlindWarning = async (
+    report: ReportWithCall,
+    blindId: string
+  ) => {
+    setProcessingId(report.id);
+    try {
+      // 1. Update Blind User with Warning Message
+      await client.graphql({
+        query: updateBlindUser,
+        variables: {
+          input: {
+            id: blindId,
+            adminWarningMessage:
+              "We noticed an issue with a recent call. Please treat volunteers with respect or your account may be suspended.",
+          },
+        },
+        authMode: "userPool",
+      });
+
+      // 2. Resolve Report
+      await client.graphql({
+        query: updateReport,
+        variables: { input: { id: report.id, status: ReportStatus.RESOLVED } },
+        authMode: "userPool",
+      });
+
+      setReports((prev) =>
+        prev.map((r) =>
+          r.id === report.id ? { ...r, status: ReportStatus.RESOLVED } : r
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Failed to send warning.");
+    } finally {
+      setProcessingId(null);
+      setModalConfig((prev) => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  // Logic: Strike Volunteer
+  const executeVolunteerStrike = async (
+    report: ReportWithCall,
+    volId: string
+  ) => {
+    setProcessingId(report.id);
+    try {
+      // 1. Get Current Count
+      const volData = await client.graphql({
+        query: getVolunteer,
+        variables: { id: volId },
+        authMode: "userPool",
+      });
+      const volunteer = volData.data.getVolunteer as Volunteer;
+      const newCount = (volunteer.warningCount || 0) + 1;
+
+      // 2. Update Count
+      await client.graphql({
+        query: updateVolunteer,
+        variables: { input: { id: volId, warningCount: newCount } },
+        authMode: "userPool",
+      });
+
+      // 3. Send Notification
+      await client.graphql({
+        query: createNotification,
+        variables: {
+          input: {
+            userId: volId,
+            title: "Safety Warning Issued",
+            message: `You have received a formal warning regarding a recent call. Strike ${newCount}/3.`,
+            type: NotificationType.WARNING,
+            isRead: false,
+          },
+        },
+        authMode: "userPool",
+      });
+
+      // 4. Resolve Report
+      await client.graphql({
+        query: updateReport,
+        variables: { input: { id: report.id, status: ReportStatus.RESOLVED } },
+        authMode: "userPool",
+      });
+
+      setReports((prev) =>
+        prev.map((r) =>
+          r.id === report.id ? { ...r, status: ReportStatus.RESOLVED } : r
+        )
+      );
+    } catch (e) {
+      console.error(e);
+      alert("Failed to issue strike.");
+    } finally {
+      setProcessingId(null);
+      setModalConfig((prev) => ({ ...prev, isOpen: false }));
     }
   };
 
@@ -92,6 +276,17 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-8 max-w-6xl mx-auto">
+      <ConfirmModal
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.action}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        type={modalConfig.type}
+        confirmText={modalConfig.confirmText}
+        isLoading={processingId !== null}
+      />
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
@@ -112,17 +307,15 @@ export default function ReportsPage() {
             key={report.id}
             className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow duration-200"
           >
-            {/* Header Status Bar */}
             <div
               className={cn(
                 "h-1 w-full",
                 report.status === "OPEN" ? "bg-orange-500" : "bg-green-500"
               )}
             />
-
             <div className="p-6">
               <div className="flex flex-col md:flex-row gap-6">
-                {/* Left: Content */}
+                {/* Content Section */}
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-4">
                     <span
@@ -149,17 +342,14 @@ export default function ReportsPage() {
                       })}
                     </span>
                   </div>
-
                   <p className="text-gray-800 text-lg leading-relaxed font-medium mb-6">
                     "{report.description || "No description provided."}"
                   </p>
 
-                  {/* Call Details Card */}
                   <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
                     <div className="flex items-center gap-2 mb-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
                       <Video size={14} /> Call Context
                     </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {report.callDetails ? (
                         <>
@@ -193,14 +383,13 @@ export default function ReportsPage() {
                       ) : (
                         <div className="col-span-2 text-sm text-gray-400 italic flex items-center gap-2">
                           <AlertCircle size={16} /> Call data unavailable
-                          (Deleted or Archived)
                         </div>
                       )}
                     </div>
                   </div>
                 </div>
 
-                {/* Right: Actions */}
+                {/* Actions */}
                 <div className="flex flex-row md:flex-col justify-between items-end min-w-[140px] border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-6 gap-4">
                   <div className="flex flex-col items-end">
                     <span className="text-xs text-gray-400 font-bold uppercase mb-1">
@@ -217,30 +406,40 @@ export default function ReportsPage() {
                       {report.status}
                     </span>
                   </div>
-
                   {report.status === "OPEN" && (
-                    <button
-                      onClick={() => handleResolve(report.id)}
-                      className="px-4 py-2 bg-gray-900 hover:bg-black text-white text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center gap-2 w-full justify-center md:w-auto"
-                    >
-                      <CheckCircle size={14} /> Resolve
-                    </button>
+                    <div className="flex flex-col gap-2 w-full md:w-auto">
+                      {/* RESOLVE BUTTON */}
+                      <button
+                        onClick={() => confirmResolve(report.id)}
+                        className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle size={14} /> Resolve Only
+                      </button>
+
+                      {/* ISSUE ACTION BUTTON (Dynamic) */}
+                      {report.callDetails && (
+                        <button
+                          onClick={() => confirmAction(report)}
+                          className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2"
+                        >
+                          {report.reportedBy === "VOLUNTEER" ? (
+                            <>
+                              <Megaphone size={14} /> Send Audio Warning
+                            </>
+                          ) : (
+                            <>
+                              <ShieldAlert size={14} /> Issue Strike
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>
             </div>
           </div>
         ))}
-
-        {!loading && reports.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-            <div className="inline-flex p-4 bg-gray-50 rounded-full mb-4">
-              <CheckCircle className="text-green-500" size={32} />
-            </div>
-            <h3 className="text-lg font-bold text-gray-900">All caught up!</h3>
-            <p className="text-gray-500">No reports found.</p>
-          </div>
-        )}
       </div>
     </div>
   );

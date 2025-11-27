@@ -10,10 +10,12 @@ import {
 } from "lucide-react";
 import { signOut } from "aws-amplify/auth";
 import { cn } from "@/lib/utils";
+import { FaEyeSlash } from "react-icons/fa";
 
 const menuItems = [
   { name: "Overview", href: "/", icon: LayoutDashboard },
   { name: "Volunteers", href: "/volunteers", icon: Users },
+  { name: "Blind Users", href: "/blind-users", icon: FaEyeSlash },
   { name: "Reports", href: "/reports", icon: AlertTriangle },
 ];
 

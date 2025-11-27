@@ -25,6 +25,8 @@ export const createVolunteer = /* GraphQL */ `mutation CreateVolunteer(
       endTime
       __typename
     }
+    warningCount
+    isBanned
     createdAt
     updatedAt
     __typename
@@ -51,6 +53,8 @@ export const updateVolunteer = /* GraphQL */ `mutation UpdateVolunteer(
       endTime
       __typename
     }
+    warningCount
+    isBanned
     createdAt
     updatedAt
     __typename
@@ -77,6 +81,8 @@ export const deleteVolunteer = /* GraphQL */ `mutation DeleteVolunteer(
       endTime
       __typename
     }
+    warningCount
+    isBanned
     createdAt
     updatedAt
     __typename
@@ -154,6 +160,8 @@ export const deleteBlindUser = /* GraphQL */ `mutation DeleteBlindUser(
   deleteBlindUser(input: $input, condition: $condition) {
     id
     trustedVolunteerIds
+    isBanned
+    adminWarningMessage
     createdAt
     updatedAt
     __typename
@@ -162,6 +170,66 @@ export const deleteBlindUser = /* GraphQL */ `mutation DeleteBlindUser(
 ` as GeneratedMutation<
   APITypes.DeleteBlindUserMutationVariables,
   APITypes.DeleteBlindUserMutation
+>;
+export const createNotification = /* GraphQL */ `mutation CreateNotification(
+  $input: CreateNotificationInput!
+  $condition: ModelNotificationConditionInput
+) {
+  createNotification(input: $input, condition: $condition) {
+    id
+    userId
+    title
+    message
+    type
+    isRead
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedMutation<
+  APITypes.CreateNotificationMutationVariables,
+  APITypes.CreateNotificationMutation
+>;
+export const updateNotification = /* GraphQL */ `mutation UpdateNotification(
+  $input: UpdateNotificationInput!
+  $condition: ModelNotificationConditionInput
+) {
+  updateNotification(input: $input, condition: $condition) {
+    id
+    userId
+    title
+    message
+    type
+    isRead
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedMutation<
+  APITypes.UpdateNotificationMutationVariables,
+  APITypes.UpdateNotificationMutation
+>;
+export const deleteNotification = /* GraphQL */ `mutation DeleteNotification(
+  $input: DeleteNotificationInput!
+  $condition: ModelNotificationConditionInput
+) {
+  deleteNotification(input: $input, condition: $condition) {
+    id
+    userId
+    title
+    message
+    type
+    isRead
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedMutation<
+  APITypes.DeleteNotificationMutationVariables,
+  APITypes.DeleteNotificationMutation
 >;
 export const createCall = /* GraphQL */ `mutation CreateCall(
   $input: CreateCallInput!
@@ -232,6 +300,8 @@ export const createBlindUser = /* GraphQL */ `mutation CreateBlindUser(
   createBlindUser(input: $input, condition: $condition) {
     id
     trustedVolunteerIds
+    isBanned
+    adminWarningMessage
     createdAt
     updatedAt
     __typename
@@ -248,6 +318,8 @@ export const updateBlindUser = /* GraphQL */ `mutation UpdateBlindUser(
   updateBlindUser(input: $input, condition: $condition) {
     id
     trustedVolunteerIds
+    isBanned
+    adminWarningMessage
     createdAt
     updatedAt
     __typename

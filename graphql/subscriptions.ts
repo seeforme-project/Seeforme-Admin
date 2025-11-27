@@ -59,6 +59,66 @@ export const onDeleteReport = /* GraphQL */ `subscription OnDeleteReport($filter
   APITypes.OnDeleteReportSubscriptionVariables,
   APITypes.OnDeleteReportSubscription
 >;
+export const onCreateNotification = /* GraphQL */ `subscription OnCreateNotification(
+  $filter: ModelSubscriptionNotificationFilterInput
+  $userId: String
+) {
+  onCreateNotification(filter: $filter, userId: $userId) {
+    id
+    userId
+    title
+    message
+    type
+    isRead
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnCreateNotificationSubscriptionVariables,
+  APITypes.OnCreateNotificationSubscription
+>;
+export const onUpdateNotification = /* GraphQL */ `subscription OnUpdateNotification(
+  $filter: ModelSubscriptionNotificationFilterInput
+  $userId: String
+) {
+  onUpdateNotification(filter: $filter, userId: $userId) {
+    id
+    userId
+    title
+    message
+    type
+    isRead
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnUpdateNotificationSubscriptionVariables,
+  APITypes.OnUpdateNotificationSubscription
+>;
+export const onDeleteNotification = /* GraphQL */ `subscription OnDeleteNotification(
+  $filter: ModelSubscriptionNotificationFilterInput
+  $userId: String
+) {
+  onDeleteNotification(filter: $filter, userId: $userId) {
+    id
+    userId
+    title
+    message
+    type
+    isRead
+    createdAt
+    updatedAt
+    __typename
+  }
+}
+` as GeneratedSubscription<
+  APITypes.OnDeleteNotificationSubscriptionVariables,
+  APITypes.OnDeleteNotificationSubscription
+>;
 export const onCreateVolunteer = /* GraphQL */ `subscription OnCreateVolunteer(
   $filter: ModelSubscriptionVolunteerFilterInput
   $owner: String
@@ -76,6 +136,8 @@ export const onCreateVolunteer = /* GraphQL */ `subscription OnCreateVolunteer(
       endTime
       __typename
     }
+    warningCount
+    isBanned
     createdAt
     updatedAt
     __typename
@@ -102,6 +164,8 @@ export const onUpdateVolunteer = /* GraphQL */ `subscription OnUpdateVolunteer(
       endTime
       __typename
     }
+    warningCount
+    isBanned
     createdAt
     updatedAt
     __typename
@@ -128,6 +192,8 @@ export const onDeleteVolunteer = /* GraphQL */ `subscription OnDeleteVolunteer(
       endTime
       __typename
     }
+    warningCount
+    isBanned
     createdAt
     updatedAt
     __typename
@@ -195,6 +261,8 @@ export const onCreateBlindUser = /* GraphQL */ `subscription OnCreateBlindUser($
   onCreateBlindUser(filter: $filter) {
     id
     trustedVolunteerIds
+    isBanned
+    adminWarningMessage
     createdAt
     updatedAt
     __typename
@@ -208,6 +276,8 @@ export const onUpdateBlindUser = /* GraphQL */ `subscription OnUpdateBlindUser($
   onUpdateBlindUser(filter: $filter) {
     id
     trustedVolunteerIds
+    isBanned
+    adminWarningMessage
     createdAt
     updatedAt
     __typename
@@ -221,6 +291,8 @@ export const onDeleteBlindUser = /* GraphQL */ `subscription OnDeleteBlindUser($
   onDeleteBlindUser(filter: $filter) {
     id
     trustedVolunteerIds
+    isBanned
+    adminWarningMessage
     createdAt
     updatedAt
     __typename
